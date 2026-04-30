@@ -1,0 +1,177 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Noto+Sans+Thai:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: "Montserrat", "Noto Sans Thai", ui-sans-serif, system-ui, sans-serif;
+  
+  /* WeWebPlus CI Palette */
+  --color-primary-deep: #2826a9;
+  --color-primary-blue: #2b71ed;
+  --color-primary-gradient: linear-gradient(135deg, #2826a9, #2b71ed);
+  --color-electric-blue: #2b71ed;
+  --color-sky-blue: #4a8df8;
+  --color-corporate-blue: #2826a9;
+  
+  /* Neutral Palette */
+  --color-bg-page: #F8FAFC;
+  --color-bg-card: #FFFFFF;
+  --color-border-subtle: #E2E8F0;
+  --color-border-strong: #CBD5E1;
+  --color-cool-gray: #94A3B8;
+  
+  /* Text Palette */
+  --color-text-main: #0F172A;
+  --color-text-secondary: #475569;
+  --color-text-muted: #94A3B8;
+
+  @keyframes marquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(-33.333%); }
+  }
+  @keyframes marquee-reverse {
+    from { transform: translateX(-33.333%); }
+    to { transform: translateX(0); }
+  }
+  --animate-marquee: marquee 60s linear infinite;
+  --animate-marquee-reverse: marquee-reverse 60s linear infinite;
+}
+
+@utility pause {
+  animation-play-state: paused;
+}
+
+body {
+  background-color: var(--color-bg-page);
+  color: var(--color-text-main);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+  line-height: 1.6;
+}
+
+.dark body {
+  background-color: #020617;
+  color: #F8FAFC;
+}
+
+/* Premium Components */
+.wwp-gradient {
+  background: linear-gradient(135deg, #2826a9, #2b71ed);
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.05);
+}
+
+.dark .glass-card {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
+}
+
+.wwp-card {
+  background: white;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 1rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dark .wwp-card {
+  background: #0F172A;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.wwp-card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+}
+
+.wwp-button-primary {
+  background: linear-gradient(135deg, #2826a9, #2b71ed);
+  color: white;
+  font-weight: 600;
+  border-radius: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.wwp-button-primary:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(43, 113, 237, 0.3);
+}
+
+.wwp-button-secondary {
+  background: white;
+  color: #2826a9;
+  border: 1px solid #E2E8F0;
+  font-weight: 600;
+  border-radius: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  transition: all 0.2s ease;
+}
+
+.wwp-button-secondary:hover {
+  background: #F8FAFC;
+  border-color: #CBD5E1;
+}
+
+.wwp-input {
+  width: 100%;
+  padding: 0.625rem 1rem;
+  border: 1px solid #E2E8F0;
+  border-radius: 0.5rem;
+  background: white;
+  transition: all 0.2s ease;
+}
+
+.wwp-input:focus {
+  outline: none;
+  border-color: #2b71ed;
+  box-shadow: 0 0 0 3px rgba(43, 113, 237, 0.1);
+}
+
+.dark .wwp-input {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 10px;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: #334155;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+/* Thai Typography Adjustments */
+p, span, div, label, input, button {
+  line-height: 1.6;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
