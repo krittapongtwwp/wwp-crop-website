@@ -39,3 +39,6 @@ build/
 
 # Vite
 *.timestamp-*
+
+# claude
+.claude/
