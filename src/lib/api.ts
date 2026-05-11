@@ -81,3 +81,11 @@ export async function uploadMedia(file: File, altText?: string, folder?: string)
 
   return response.json()
 }
+
+export function getMediaUrl(url?: string | null): string {
+  if (!url) return ''
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:')) {
+    return url
+  }
+  return `${BASE_URL}${url}`
+}

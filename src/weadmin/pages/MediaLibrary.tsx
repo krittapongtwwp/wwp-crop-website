@@ -1,71 +1,61 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Upload, 
-  Search, 
-  Filter, 
-  Trash2, 
-  Image as ImageIcon,
-  File,
-  Folder,
-  MoreVertical,
-  X
-} from 'lucide-react';
-import { fetchApi, uploadMedia } from '@/lib/api';
+import React, { useState, useEffect } from 'react'
+import { Upload, Search, Filter, Trash2, Image as ImageIcon, File, Folder, MoreVertical, X } from 'lucide-react'
+import { fetchApi, uploadMedia, getMediaUrl } from '@/lib/api'
 
 export default function AdminMediaLibrary() {
-  const [media, setMedia] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [uploading, setUploading] = useState(false);
+  const [media, setMedia] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [uploading, setUploading] = useState(false)
 
   useEffect(() => {
-    loadMedia();
-  }, []);
+    loadMedia()
+  }, [])
 
   const loadMedia = async () => {
     try {
-      setLoading(true);
-      const res = await fetchApi('/media');
-      const data = res.data || res;
-      setMedia(Array.isArray(data) ? data : []);
+      setLoading(true)
+      const res = await fetchApi('/media')
+      const data = res.data || res
+      setMedia(Array.isArray(data) ? data : [])
     } catch (err) {
-      console.error('Failed to load media', err);
+      console.error('Failed to load media', err)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
+    const files = e.target.files
+    if (!files || files.length === 0) return
 
-    setUploading(true);
+    setUploading(true)
     try {
-      const file = files[0];
-      await uploadMedia(file, file.name, 'general');
-      await loadMedia();
+      const file = files[0]
+      await uploadMedia(file, file.name, 'general')
+      await loadMedia()
     } catch (err) {
-      console.error('Failed to upload media', err);
-      alert('Failed to upload media.');
+      console.error('Failed to upload media', err)
+      alert('Failed to upload media.')
     } finally {
-      setUploading(false);
+      setUploading(false)
     }
-  };
+  }
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm('Are you sure you want to delete this file?')) return;
+    if (!window.confirm('Are you sure you want to delete this file?')) return
     try {
-      await fetchApi(`/media/${id}`, { method: 'DELETE' });
-      await loadMedia();
+      await fetchApi(`/media/${id}`, { method: 'DELETE' })
+      await loadMedia()
     } catch (err) {
-      console.error('Failed to delete media', err);
+      console.error('Failed to delete media', err)
     }
-  };
+  }
 
-  const filteredMedia = media.filter(item => {
-    if (searchQuery && !item.filename?.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-    return true;
-  });
+  const filteredMedia = media.filter((item) => {
+    if (searchQuery && !item.filename?.toLowerCase().includes(searchQuery.toLowerCase())) return false
+    return true
+  })
 
   return (
     <div className="space-y-6">
@@ -82,10 +72,9 @@ export default function AdminMediaLibrary() {
             onChange={handleUpload}
             accept="image/*,application/pdf"
           />
-          <label 
+          <label
             htmlFor="media-upload"
-            className={`inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors cursor-pointer ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
-          >
+            className={`inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors cursor-pointer ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
             <Upload className="w-4 h-4 mr-2" />
             {uploading ? 'Uploading...' : 'Upload Files'}
           </label>
@@ -105,7 +94,7 @@ export default function AdminMediaLibrary() {
             Documents
           </button>
         </div>
-        
+
         <div className="flex w-full sm:w-auto space-x-3">
           <div className="relative flex-1 sm:w-64">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -114,7 +103,7 @@ export default function AdminMediaLibrary() {
             <input
               type="text"
               value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
+              onChange={(e) => setSearchQuery(e.target.value)}
               className="block w-full pl-10 pr-3 py-2 border border-gray-200 dark:border-white/10 rounded-lg leading-5 bg-gray-50 dark:bg-white/5 text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-colors"
               placeholder="Search files..."
             />
@@ -131,37 +120,38 @@ export default function AdminMediaLibrary() {
           <div className="col-span-full py-12 text-center text-gray-500">Loading media...</div>
         ) : filteredMedia.length === 0 ? (
           <div className="col-span-full py-12 text-center text-gray-500">No media files found.</div>
-        ) : filteredMedia.map((item) => (
-          <div key={item.id} className="group relative bg-white dark:bg-[#050A15] rounded-xl border border-gray-200 dark:border-white/10 overflow-hidden hover:shadow-md transition-shadow">
-            <div className="aspect-square bg-gray-100 dark:bg-white/5 flex items-center justify-center overflow-hidden">
-              {item.url && item.url.match(/\.(jpeg|jpg|gif|png|webp)$/i) || item.url?.startsWith('blob:') ? (
-                <img src={item.url} alt={item.alt_text} className="w-full h-full object-cover" />
-              ) : (
-                <File className="w-12 h-12 text-gray-400" />
-              )}
+        ) : (
+          filteredMedia.map((item) => (
+            <div
+              key={item.id}
+              className="group relative bg-white dark:bg-[#050A15] rounded-xl border border-gray-200 dark:border-white/10 overflow-hidden hover:shadow-md transition-shadow">
+              <div className="aspect-square bg-gray-100 dark:bg-white/5 flex items-center justify-center overflow-hidden">
+                {(item.url && item.url.match(/\.(jpeg|jpg|gif|png|webp)$/i)) || item.url?.startsWith('blob:') ? (
+                  <img src={getMediaUrl(item.url)} alt={item.alt_text} className="w-full h-full object-cover" />
+                ) : (
+                  <File className="w-12 h-12 text-gray-400" />
+                )}
+              </div>
+              <div className="p-3">
+                <p className="text-sm font-medium text-gray-900 dark:text-white truncate" title={item.filename}>
+                  {item.filename}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">{new Date(item.created_at).toLocaleDateString()}</p>
+              </div>
+
+              {/* Actions overlay */}
+              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex space-x-1">
+                <button
+                  onClick={() => handleDelete(item.id)}
+                  className="p-1.5 bg-white dark:bg-gray-800 rounded-lg shadow-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                  title="Delete">
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
             </div>
-            <div className="p-3">
-              <p className="text-sm font-medium text-gray-900 dark:text-white truncate" title={item.filename}>
-                {item.filename}
-              </p>
-              <p className="text-xs text-gray-500 mt-1">
-                {new Date(item.created_at).toLocaleDateString()}
-              </p>
-            </div>
-            
-            {/* Actions overlay */}
-            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex space-x-1">
-              <button 
-                onClick={() => handleDelete(item.id)}
-                className="p-1.5 bg-white dark:bg-gray-800 rounded-lg shadow-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                title="Delete"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
     </div>
-  );
+  )
 }
