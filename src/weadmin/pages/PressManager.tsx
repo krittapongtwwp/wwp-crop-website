@@ -156,7 +156,7 @@ export default function AdminPress() {
 
     setIsGeneratingImage(true)
     try {
-      await ensureApiKey()
+      // await ensureApiKey()
       const prompt = `A professional, high-quality editorial image for a news article titled: "${currentItem.title_en}". Category: ${currentItem.category}. Additional Details: ${aiPrompt}. Modern, corporate, tech-focused, abstract or realistic depending on the topic.`
 
       const imageUrl = await generateAIImage(prompt)
