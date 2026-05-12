@@ -16,7 +16,7 @@ import {
   Wand2
 } from 'lucide-react'
 import { fetchApi, uploadMedia, getMediaUrl } from '@/lib/api'
-import { generateAIContent, generateAIImage, ensureApiKey } from '@/services/aiService'
+import { generateAIContent, generateAIImage } from '@/services/aiService'
 
 export default function AdminPress() {
   const [activeTab, setActiveTab] = useState('all')

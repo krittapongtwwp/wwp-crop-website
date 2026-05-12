@@ -19,7 +19,7 @@ import {
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { fetchApi } from '@/lib/api'
-import { generateAIContent, generateAIImage, ensureApiKey } from '@/services/aiService'
+import { generateAIContent, generateAIImage } from '@/services/aiService'
 
 export default function AdminHomepage() {
   const [activeTab, setActiveTab] = useState('en')
