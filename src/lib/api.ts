@@ -31,9 +31,12 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
     })
 
     if (!response.ok) {
-      if (response.status === 401 || response.status === 403) {
-        // localStorage.removeItem('weadmin_token')
-        // window.location.href = '/weadmin/login'
+      // if (response.status === 401 || response.status === 403) {
+      // localStorage.removeItem('weadmin_token')
+      // window.location.href = '/weadmin/login'
+      // }
+      if (response.status === 401 || response.status === 404) {
+        window.location.href = '/weadmin/login'
       }
       const rawText = await response.text()
       if (response.status !== 404) {
