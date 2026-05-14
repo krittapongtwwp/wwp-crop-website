@@ -10,54 +10,13 @@ import {
   Plus,
   Pencil,
   Trash2,
-  X
+  X,
+  Eye,
+  EyeOff,
+  KeyRound
 } from 'lucide-react'
 
 type UserRole = 'admin' | 'editor' | 'viewer'
-
-interface AdminUser {
-  id: number
-  name: string
-  email: string
-  role: UserRole
-  status: 'active' | 'inactive'
-  lastLogin: string
-}
-
-const MOCK_USERS: AdminUser[] = [
-  {
-    id: 1,
-    name: 'Krittapong T.',
-    email: 'krittapong@wewebplus.com',
-    role: 'admin',
-    status: 'active',
-    lastLogin: '2026-05-14 09:21'
-  },
-  {
-    id: 2,
-    name: 'Jane Smith',
-    email: 'jane@wewebplus.com',
-    role: 'editor',
-    status: 'active',
-    lastLogin: '2026-05-13 17:02'
-  },
-  {
-    id: 3,
-    name: 'Michael Chen',
-    email: 'michael@wewebplus.com',
-    role: 'editor',
-    status: 'active',
-    lastLogin: '2026-05-12 11:48'
-  },
-  {
-    id: 4,
-    name: 'Sarah Johnson',
-    email: 'sarah@wewebplus.com',
-    role: 'viewer',
-    status: 'inactive',
-    lastLogin: '2026-04-29 08:15'
-  }
-]
 
 const ROLE_BADGE: Record<UserRole, string> = {
   admin: 'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400',
@@ -65,6 +24,7 @@ const ROLE_BADGE: Record<UserRole, string> = {
   viewer: 'bg-gray-100 text-text-secondary dark:bg-white/5 dark:text-gray-400'
 }
 import { fetchApi, uploadMedia } from '@/lib/api'
+import { usersApi, getUserErrorMessage, type ApiUser } from '@/lib/api/users'
 
 export default function AdminSettings() {
   const [activeTab, setActiveTab] = useState('general')
@@ -89,50 +49,99 @@ export default function AdminSettings() {
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [users, setUsers] = useState<AdminUser[]>(MOCK_USERS)
+  const [users, setUsers] = useState<ApiUser[]>([])
+  const [usersLoading, setUsersLoading] = useState(false)
   const [userSearch, setUserSearch] = useState('')
+  const [userSubmitting, setUserSubmitting] = useState(false)
 
   const [userModalOpen, setUserModalOpen] = useState(false)
-  const [editingUser, setEditingUser] = useState<AdminUser | null>(null)
+  const [editingUser, setEditingUser] = useState<ApiUser | null>(null)
   const [userForm, setUserForm] = useState<{
     name: string
     email: string
     role: UserRole
-    status: 'active' | 'inactive'
+    password: string
+    confirmPassword: string
   }>({
     name: '',
     email: '',
     role: 'viewer',
-    status: 'active'
+    password: '',
+    confirmPassword: ''
   })
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
-  const updateUserRole = (id: number, role: UserRole) => {
-    setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, role } : u)))
-    // TODO: integrate backend API: PUT /users/:id { role }
+  // ===== Load users on mount =====
+  const loadUsers = async () => {
+    try {
+      setUsersLoading(true)
+      const data = await usersApi.list()
+      setUsers(data)
+    } catch (err) {
+      console.error('Failed to load users', err)
+      alert(getUserErrorMessage(err))
+    } finally {
+      setUsersLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadUsers()
+  }, [])
+
+  // ===== Inline role change (dropdown ในตาราง) =====
+  // หลักคิด: ส่ง full payload ตามที่ backend ต้องการ (email + name + role)
+  const updateUserRole = async (id: number, role: UserRole) => {
+    const target = users.find((u) => u.id === id)
+    if (!target) return
+    try {
+      await usersApi.update(id, {
+        email: target.email,
+        name: target.name,
+        role
+      })
+      // refetch เพื่อให้แน่ใจว่า state ตรงกับ DB
+      await loadUsers()
+    } catch (err) {
+      console.error('Failed to update role', err)
+      alert(getUserErrorMessage(err))
+    }
   }
 
   const openCreateUser = () => {
     setEditingUser(null)
-    setUserForm({ name: '', email: '', role: 'viewer', status: 'active' })
+    setUserForm({ name: '', email: '', role: 'viewer', password: '', confirmPassword: '' })
+    setShowPassword(false)
+    setShowConfirmPassword(false)
     setUserModalOpen(true)
   }
 
-  const openEditUser = (user: AdminUser) => {
+  const openEditUser = (user: ApiUser) => {
     setEditingUser(user)
-    setUserForm({ name: user.name, email: user.email, role: user.role, status: user.status })
+    setUserForm({
+      name: user.name ?? '',          // null → '' สำหรับ input
+      email: user.email,
+      role: user.role,
+      password: '',
+      confirmPassword: ''
+    })
+    setShowPassword(false)
+    setShowConfirmPassword(false)
     setUserModalOpen(true)
   }
 
   const closeUserModal = () => {
+    if (userSubmitting) return        // กันปิดระหว่างกำลัง save
     setUserModalOpen(false)
     setEditingUser(null)
   }
 
-  const submitUserForm = () => {
+  const submitUserForm = async () => {
     const name = userForm.name.trim()
     const email = userForm.email.trim()
-    if (!name || !email) {
-      alert('กรุณากรอกชื่อและอีเมล / Name and email are required')
+    if (!email) {
+      alert('กรุณากรอกอีเมล / Email is required')
       return
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -140,39 +149,69 @@ export default function AdminSettings() {
       return
     }
 
-    if (editingUser) {
-      setUsers((prev) =>
-        prev.map((u) =>
-          u.id === editingUser.id ? { ...u, name, email, role: userForm.role, status: userForm.status } : u
-        )
-      )
-      // TODO: integrate backend API: PUT /users/:id
-    } else {
-      const nextId = users.length ? Math.max(...users.map((u) => u.id)) + 1 : 1
-      const newUser: AdminUser = {
-        id: nextId,
-        name,
-        email,
-        role: userForm.role,
-        status: userForm.status,
-        lastLogin: '-'
+    // Password validation
+    // - Create: required
+    // - Edit: optional (เว้นว่างถ้าไม่เปลี่ยน)
+    const password = userForm.password
+    const confirmPassword = userForm.confirmPassword
+    const passwordRequired = !editingUser
+    const passwordProvided = password.length > 0 || confirmPassword.length > 0
+
+    if (passwordRequired || passwordProvided) {
+      if (password.length < 8) {
+        alert('รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร / Password must be at least 8 characters')
+        return
       }
-      setUsers((prev) => [...prev, newUser])
-      // TODO: integrate backend API: POST /users
+      if (password !== confirmPassword) {
+        alert('รหัสผ่านยืนยันไม่ตรงกัน / Passwords do not match')
+        return
+      }
     }
-    closeUserModal()
+
+    try {
+      setUserSubmitting(true)
+      if (editingUser) {
+        await usersApi.update(editingUser.id, {
+          email,
+          name: name || null,                                   // ส่ง null ถ้า user ลบชื่อทิ้ง
+          role: userForm.role,
+          ...(passwordProvided ? { password } : {})             // spread แบบมี condition
+        })
+      } else {
+        await usersApi.create({
+          email,
+          name: name || null,
+          role: userForm.role,
+          password
+        })
+      }
+      await loadUsers()
+      setUserModalOpen(false)
+      setEditingUser(null)
+    } catch (err) {
+      console.error('Failed to save user', err)
+      alert(getUserErrorMessage(err))
+    } finally {
+      setUserSubmitting(false)
+    }
   }
 
-  const deleteUser = (user: AdminUser) => {
-    if (!confirm(`ต้องการลบผู้ใช้ "${user.name}" ใช่หรือไม่? / Delete this user?`)) return
-    setUsers((prev) => prev.filter((u) => u.id !== user.id))
-    // TODO: integrate backend API: DELETE /users/:id
+  const deleteUser = async (user: ApiUser) => {
+    const label = user.name || user.email
+    if (!confirm(`ต้องการลบผู้ใช้ "${label}" ใช่หรือไม่? / Delete this user?`)) return
+    try {
+      await usersApi.remove(user.id)
+      await loadUsers()
+    } catch (err) {
+      console.error('Failed to delete user', err)
+      alert(getUserErrorMessage(err))
+    }
   }
 
   const filteredUsers = users.filter((u) => {
     const q = userSearch.trim().toLowerCase()
     if (!q) return true
-    return u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)
+    return (u.name ?? '').toLowerCase().includes(q) || u.email.toLowerCase().includes(q)
   })
 
   const [settingId, setSettingId] = useState<number | null>(null)
@@ -662,98 +701,91 @@ export default function AdminSettings() {
                       <tr className="text-left text-[10px] font-bold uppercase tracking-widest text-text-muted">
                         <th className="px-5 py-3">ผู้ใช้งาน / User</th>
                         <th className="px-5 py-3">บทบาท / Role</th>
-                        <th className="px-5 py-3">สถานะ / Status</th>
-                        <th className="px-5 py-3">เข้าสู่ระบบล่าสุด / Last Login</th>
                         <th className="px-5 py-3 text-right">จัดการ / Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border-subtle dark:divide-white/5">
-                      {filteredUsers.length === 0 && (
+                      {usersLoading && (
                         <tr>
-                          <td colSpan={5} className="px-5 py-8 text-center text-text-muted">
+                          <td colSpan={3} className="px-5 py-8 text-center text-text-muted">
+                            กำลังโหลด... / Loading...
+                          </td>
+                        </tr>
+                      )}
+                      {!usersLoading && filteredUsers.length === 0 && (
+                        <tr>
+                          <td colSpan={3} className="px-5 py-8 text-center text-text-muted">
                             ไม่พบผู้ใช้งาน / No users found
                           </td>
                         </tr>
                       )}
-                      {filteredUsers.map((user) => (
-                        <tr key={user.id} className="hover:bg-gray-50/50 dark:hover:bg-white/2 transition-colors">
-                          <td className="px-5 py-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-9 h-9 rounded-full wwp-gradient flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                                {user.name
-                                  .split(' ')
-                                  .map((n) => n[0])
-                                  .join('')
-                                  .slice(0, 2)
-                                  .toUpperCase()}
-                              </div>
-                              <div className="min-w-0">
-                                <div className="font-bold text-text-main dark:text-white truncate">{user.name}</div>
-                                <div className="text-xs text-text-muted truncate">{user.email}</div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-5 py-4">
-                            <div className="flex items-center gap-2">
-                              <span
-                                className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${ROLE_BADGE[user.role]}`}>
-                                {user.role}
-                              </span>
-                              <select
-                                value={user.role}
-                                onChange={(e) => updateUserRole(user.id, e.target.value as UserRole)}
-                                className="wwp-input py-1.5 text-xs w-auto">
-                                <option value="admin">Admin</option>
-                                <option value="editor">Editor</option>
-                                <option value="viewer">Viewer</option>
-                              </select>
-                            </div>
-                          </td>
-                          <td className="px-5 py-4">
-                            <span
-                              className={`inline-flex items-center gap-1.5 text-xs font-medium ${
-                                user.status === 'active' ? 'text-green-600 dark:text-green-400' : 'text-text-muted'
-                              }`}>
-                              <span
-                                className={`w-1.5 h-1.5 rounded-full ${
-                                  user.status === 'active'
-                                    ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]'
-                                    : 'bg-gray-400'
-                                }`}
-                              />
-                              {user.status === 'active' ? 'ใช้งาน / Active' : 'ปิดใช้งาน / Inactive'}
-                            </span>
-                          </td>
-                          <td className="px-5 py-4 text-xs text-text-secondary dark:text-gray-400 font-mono">
-                            {user.lastLogin}
-                          </td>
-                          <td className="px-5 py-4">
-                            <div className="flex items-center justify-end gap-2">
-                              <button
-                                type="button"
-                                onClick={() => openEditUser(user)}
-                                title="แก้ไข / Edit"
-                                className="p-2 rounded-lg text-text-muted hover:text-primary-blue hover:bg-blue-50 dark:hover:bg-primary-blue/10 transition-colors">
-                                <Pencil className="w-4 h-4" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => deleteUser(user)}
-                                title="ลบ / Delete"
-                                className="p-2 rounded-lg text-text-muted hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors">
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
+                      {!usersLoading &&
+                        filteredUsers.map((user) => {
+                          const displayName = user.name || user.email
+                          const initials = displayName
+                            .split(/\s+|@/)
+                            .filter(Boolean)
+                            .map((n) => n[0])
+                            .join('')
+                            .slice(0, 2)
+                            .toUpperCase()
+                          return (
+                            <tr
+                              key={user.id}
+                              className="hover:bg-gray-50/50 dark:hover:bg-white/2 transition-colors">
+                              <td className="px-5 py-4">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-9 h-9 rounded-full wwp-gradient flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                                    {initials}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <div className="font-bold text-text-main dark:text-white truncate">
+                                      {user.name || <span className="text-text-muted italic">— ไม่ระบุชื่อ</span>}
+                                    </div>
+                                    <div className="text-xs text-text-muted truncate">{user.email}</div>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-5 py-4">
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${ROLE_BADGE[user.role]}`}>
+                                    {user.role}
+                                  </span>
+                                  <select
+                                    value={user.role}
+                                    onChange={(e) => updateUserRole(user.id, e.target.value as UserRole)}
+                                    className="wwp-input py-1.5 text-xs w-auto">
+                                    <option value="admin">Admin</option>
+                                    <option value="editor">Editor</option>
+                                    <option value="viewer">Viewer</option>
+                                  </select>
+                                </div>
+                              </td>
+                              <td className="px-5 py-4">
+                                <div className="flex items-center justify-end gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => openEditUser(user)}
+                                    title="แก้ไข / Edit"
+                                    className="p-2 rounded-lg text-text-muted hover:text-primary-blue hover:bg-blue-50 dark:hover:bg-primary-blue/10 transition-colors">
+                                    <Pencil className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => deleteUser(user)}
+                                    title="ลบ / Delete"
+                                    className="p-2 rounded-lg text-text-muted hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors">
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          )
+                        })}
                     </tbody>
                   </table>
                 </div>
-
-                <p className="mt-4 text-[10px] font-bold text-text-muted uppercase tracking-widest">
-                  * ขณะนี้แสดงข้อมูลตัวอย่าง (Mock Data) — รอเชื่อมต่อ Backend API
-                </p>
               </div>
             </div>
           )}
@@ -842,27 +874,78 @@ export default function AdminSettings() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                <div className="wwp-input-group">
-                  <label className="wwp-label">บทบาท / Role</label>
-                  <select
-                    value={userForm.role}
-                    onChange={(e) => setUserForm({ ...userForm, role: e.target.value as UserRole })}
-                    className="wwp-input">
-                    <option value="admin">Admin</option>
-                    <option value="editor">Editor</option>
-                    <option value="viewer">Viewer</option>
-                  </select>
+              <div className="wwp-input-group">
+                <label className="wwp-label">บทบาท / Role</label>
+                <select
+                  value={userForm.role}
+                  onChange={(e) => setUserForm({ ...userForm, role: e.target.value as UserRole })}
+                  className="wwp-input">
+                  <option value="admin">Admin</option>
+                  <option value="editor">Editor</option>
+                  <option value="viewer">Viewer</option>
+                </select>
+              </div>
+
+              {/* Password Section */}
+              <div className="pt-5 border-t border-border-subtle dark:border-white/5">
+                <div className="flex items-center gap-2 mb-4">
+                  <KeyRound className="w-4 h-4 text-text-muted" />
+                  <span className="text-xs font-bold uppercase tracking-widest text-text-secondary dark:text-gray-400">
+                    {editingUser ? 'เปลี่ยนรหัสผ่าน / Change Password' : 'ตั้งรหัสผ่าน / Set Password'}
+                  </span>
                 </div>
-                <div className="wwp-input-group">
-                  <label className="wwp-label">สถานะ / Status</label>
-                  <select
-                    value={userForm.status}
-                    onChange={(e) => setUserForm({ ...userForm, status: e.target.value as 'active' | 'inactive' })}
-                    className="wwp-input">
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                  </select>
+                {editingUser && (
+                  <p className="text-[11px] text-text-muted mb-4">
+                    เว้นว่างไว้ถ้าไม่ต้องการเปลี่ยน / Leave blank to keep current password
+                  </p>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <div className="wwp-input-group">
+                    <label className="wwp-label">
+                      รหัสผ่าน / Password {!editingUser && <span className="text-red-500">*</span>}
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        value={userForm.password}
+                        onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
+                        className="wwp-input pr-10"
+                        placeholder={editingUser ? '••••••••' : 'อย่างน้อย 8 ตัวอักษร'}
+                        autoComplete="new-password"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((v) => !v)}
+                        tabIndex={-1}
+                        className="absolute inset-y-0 right-0 flex items-center px-3 text-text-muted hover:text-text-main transition-colors">
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="wwp-input-group">
+                    <label className="wwp-label">
+                      ยืนยันรหัสผ่าน / Confirm {!editingUser && <span className="text-red-500">*</span>}
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        value={userForm.confirmPassword}
+                        onChange={(e) => setUserForm({ ...userForm, confirmPassword: e.target.value })}
+                        className="wwp-input pr-10"
+                        placeholder={editingUser ? '••••••••' : 'พิมพ์รหัสผ่านอีกครั้ง'}
+                        autoComplete="new-password"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword((v) => !v)}
+                        tabIndex={-1}
+                        className="absolute inset-y-0 right-0 flex items-center px-3 text-text-muted hover:text-text-main transition-colors">
+                        {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -871,15 +954,21 @@ export default function AdminSettings() {
               <button
                 type="button"
                 onClick={closeUserModal}
-                className="px-4 py-2 rounded-xl text-sm font-bold text-text-secondary hover:bg-gray-100 dark:hover:bg-white/5 transition-colors">
+                disabled={userSubmitting}
+                className="px-4 py-2 rounded-xl text-sm font-bold text-text-secondary hover:bg-gray-100 dark:hover:bg-white/5 transition-colors disabled:opacity-50">
                 ยกเลิก / Cancel
               </button>
               <button
                 type="button"
                 onClick={submitUserForm}
-                className="wwp-button-primary shadow-lg shadow-primary-blue/20">
+                disabled={userSubmitting}
+                className="wwp-button-primary shadow-lg shadow-primary-blue/20 disabled:opacity-60">
                 <Save className="w-4 h-4 mr-2" />
-                {editingUser ? 'บันทึก / Save' : 'เพิ่มผู้ใช้ / Create'}
+                {userSubmitting
+                  ? 'กำลังบันทึก... / Saving...'
+                  : editingUser
+                    ? 'บันทึก / Save'
+                    : 'เพิ่มผู้ใช้ / Create'}
               </button>
             </div>
           </div>
