@@ -120,7 +120,7 @@ export default function AdminSettings() {
   const openEditUser = (user: ApiUser) => {
     setEditingUser(user)
     setUserForm({
-      name: user.name ?? '',          // null → '' สำหรับ input
+      name: user.name ?? '', // null → '' สำหรับ input
       email: user.email,
       role: user.role,
       password: '',
@@ -132,7 +132,7 @@ export default function AdminSettings() {
   }
 
   const closeUserModal = () => {
-    if (userSubmitting) return        // กันปิดระหว่างกำลัง save
+    if (userSubmitting) return // กันปิดระหว่างกำลัง save
     setUserModalOpen(false)
     setEditingUser(null)
   }
@@ -158,7 +158,7 @@ export default function AdminSettings() {
     const passwordProvided = password.length > 0 || confirmPassword.length > 0
 
     if (passwordRequired || passwordProvided) {
-      if (password.length < 8) {
+      if (password.length < 4) {
         alert('รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร / Password must be at least 8 characters')
         return
       }
@@ -173,9 +173,9 @@ export default function AdminSettings() {
       if (editingUser) {
         await usersApi.update(editingUser.id, {
           email,
-          name: name || null,                                   // ส่ง null ถ้า user ลบชื่อทิ้ง
+          name: name || null, // ส่ง null ถ้า user ลบชื่อทิ้ง
           role: userForm.role,
-          ...(passwordProvided ? { password } : {})             // spread แบบมี condition
+          ...(passwordProvided ? { password } : {}) // spread แบบมี condition
         })
       } else {
         await usersApi.create({
@@ -730,9 +730,7 @@ export default function AdminSettings() {
                             .slice(0, 2)
                             .toUpperCase()
                           return (
-                            <tr
-                              key={user.id}
-                              className="hover:bg-gray-50/50 dark:hover:bg-white/2 transition-colors">
+                            <tr key={user.id} className="hover:bg-gray-50/50 dark:hover:bg-white/2 transition-colors">
                               <td className="px-5 py-4">
                                 <div className="flex items-center gap-3">
                                   <div className="w-9 h-9 rounded-full wwp-gradient flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
@@ -964,11 +962,7 @@ export default function AdminSettings() {
                 disabled={userSubmitting}
                 className="wwp-button-primary shadow-lg shadow-primary-blue/20 disabled:opacity-60">
                 <Save className="w-4 h-4 mr-2" />
-                {userSubmitting
-                  ? 'กำลังบันทึก... / Saving...'
-                  : editingUser
-                    ? 'บันทึก / Save'
-                    : 'เพิ่มผู้ใช้ / Create'}
+                {userSubmitting ? 'กำลังบันทึก... / Saving...' : editingUser ? 'บันทึก / Save' : 'เพิ่มผู้ใช้ / Create'}
               </button>
             </div>
           </div>
