@@ -60,6 +60,7 @@ export function getUserErrorMessage(err: unknown): string {
     case 'CREATE_USER_ERROR':
     case 'UPDATE_USER_ERROR':
     case 'DELETE_USER_ERROR':
+      return "ไม่มีสิทธิ์ทำรายการนี้ — ต้องเป็น Admin เท่านั้น You don't have permission. Contact your administrator."
     case 'GET_USER_ERROR':
       return 'เกิดข้อผิดพลาดของเซิร์ฟเวอร์ / Server error'
     default:
