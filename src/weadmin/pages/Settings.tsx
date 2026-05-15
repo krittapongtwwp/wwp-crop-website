@@ -13,7 +13,19 @@ import {
   X,
   Eye,
   EyeOff,
-  KeyRound
+  KeyRound,
+  ShieldCheck,
+  ChevronRight,
+  Settings as SettingsIcon,
+  LayoutDashboard,
+  Home,
+  Layers,
+  Briefcase,
+  Users,
+  FileText,
+  MessageSquare,
+  Bot,
+  History
 } from 'lucide-react'
 
 type UserRole = 'admin' | 'editor' | 'viewer'
@@ -23,6 +35,33 @@ const ROLE_BADGE: Record<UserRole, string> = {
   editor: 'bg-blue-50 text-primary-blue dark:bg-primary-blue/10 dark:text-blue-400',
   viewer: 'bg-gray-100 text-text-secondary dark:bg-white/5 dark:text-gray-400'
 }
+
+type PermissionLevel = 'viewer' | 'editor' | 'all'
+
+interface PermissionGroup {
+  id: number
+  name_en: string
+  name_th: string
+  description: string
+  permissions: Record<string, PermissionLevel>
+}
+
+const MODULES = [
+  { id: 'dashboard', name: 'Dashboard', icon: LayoutDashboard },
+  { id: 'homepage', name: 'Homepage', icon: Home },
+  { id: 'solutions', name: 'Solutions', icon: Layers },
+  { id: 'portfolio', name: 'Portfolio', icon: Briefcase },
+  { id: 'clients', name: 'Clients', icon: Users },
+  { id: 'services', name: 'Services', icon: Layers },
+  { id: 'press', name: 'Insights (Press)', icon: FileText },
+  { id: 'careers', name: 'Careers', icon: Briefcase },
+  { id: 'leads', name: 'Leads', icon: MessageSquare },
+  { id: 'ai-assistant', name: 'AI Assistant', icon: Bot },
+  { id: 'media', name: 'Media Library', icon: ImageIcon },
+  { id: 'changelog', name: 'Changelog', icon: History },
+  { id: 'settings', name: 'Settings', icon: SettingsIcon }
+]
+
 import { fetchApi, uploadMedia } from '@/lib/api'
 import { usersApi, getUserErrorMessage, type ApiUser } from '@/lib/api/users'
 
@@ -72,6 +111,40 @@ export default function AdminSettings() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
+  // System Permissions State
+  const [permissionGroups, setPermissionGroups] = useState<PermissionGroup[]>([
+    {
+      id: 1,
+      name_en: 'Administrator',
+      name_th: 'ผู้ดูแลระบบ',
+      description: 'Full access to all system features and settings.',
+      permissions: MODULES.reduce((acc, m) => ({ ...acc, [m.id]: 'all' }), {})
+    },
+    {
+      id: 2,
+      name_en: 'Editor',
+      name_th: 'ผู้แก้ไขเนื้อหา',
+      description: 'Can manage content but cannot change system settings.',
+      permissions: MODULES.reduce((acc, m) => ({ ...acc, [m.id]: m.id === 'settings' ? 'viewer' : 'editor' }), {})
+    },
+    {
+      id: 3,
+      name_en: 'Viewer',
+      name_th: 'ผู้เข้าชม',
+      description: 'Read-only access to most parts of the system.',
+      permissions: MODULES.reduce((acc, m) => ({ ...acc, [m.id]: 'viewer' }), {})
+    }
+  ])
+  const [permissionModalOpen, setPermissionModalOpen] = useState(false)
+  const [editingPermission, setEditingPermission] = useState<PermissionGroup | null>(null)
+  const [permissionForm, setPermissionForm] = useState<PermissionGroup>({
+    id: 0,
+    name_en: '',
+    name_th: '',
+    description: '',
+    permissions: MODULES.reduce((acc, m) => ({ ...acc, [m.id]: 'viewer' }), {})
+  })
+
   // ===== Load users on mount =====
   const loadUsers = async () => {
     try {
@@ -91,7 +164,6 @@ export default function AdminSettings() {
   }, [])
 
   // ===== Inline role change (dropdown ในตาราง) =====
-  // หลักคิด: ส่ง full payload ตามที่ backend ต้องการ (email + name + role)
   const updateUserRole = async (id: number, role: UserRole) => {
     const target = users.find((u) => u.id === id)
     if (!target) return
@@ -101,7 +173,6 @@ export default function AdminSettings() {
         name: target.name,
         role
       })
-      // refetch เพื่อให้แน่ใจว่า state ตรงกับ DB
       await loadUsers()
     } catch (err) {
       console.error('Failed to update role', err)
@@ -120,7 +191,7 @@ export default function AdminSettings() {
   const openEditUser = (user: ApiUser) => {
     setEditingUser(user)
     setUserForm({
-      name: user.name ?? '', // null → '' สำหรับ input
+      name: user.name ?? '',
       email: user.email,
       role: user.role,
       password: '',
@@ -132,7 +203,7 @@ export default function AdminSettings() {
   }
 
   const closeUserModal = () => {
-    if (userSubmitting) return // กันปิดระหว่างกำลัง save
+    if (userSubmitting) return
     setUserModalOpen(false)
     setEditingUser(null)
   }
@@ -149,9 +220,6 @@ export default function AdminSettings() {
       return
     }
 
-    // Password validation
-    // - Create: required
-    // - Edit: optional (เว้นว่างถ้าไม่เปลี่ยน)
     const password = userForm.password
     const confirmPassword = userForm.confirmPassword
     const passwordRequired = !editingUser
@@ -173,9 +241,9 @@ export default function AdminSettings() {
       if (editingUser) {
         await usersApi.update(editingUser.id, {
           email,
-          name: name || null, // ส่ง null ถ้า user ลบชื่อทิ้ง
+          name: name || null,
           role: userForm.role,
-          ...(passwordProvided ? { password } : {}) // spread แบบมี condition
+          ...(passwordProvided ? { password } : {})
         })
       } else {
         await usersApi.create({
@@ -213,6 +281,44 @@ export default function AdminSettings() {
     if (!q) return true
     return (u.name ?? '').toLowerCase().includes(q) || u.email.toLowerCase().includes(q)
   })
+
+  // System Permissions Handlers
+  const openCreatePermission = () => {
+    setEditingPermission(null)
+    setPermissionForm({
+      id: Date.now(),
+      name_en: '',
+      name_th: '',
+      description: '',
+      permissions: MODULES.reduce((acc, m) => ({ ...acc, [m.id]: 'viewer' }), {})
+    })
+    setPermissionModalOpen(true)
+  }
+
+  const openEditPermission = (group: PermissionGroup) => {
+    setEditingPermission(group)
+    setPermissionForm({ ...group })
+    setPermissionModalOpen(true)
+  }
+
+  const deletePermission = (id: number) => {
+    if (!confirm('ต้องการลบสิทธิ์นี้ใช่หรือไม่? / Delete this permission group?')) return
+    setPermissionGroups((prev) => prev.filter((g) => g.id !== id))
+  }
+
+  const submitPermissionForm = () => {
+    if (!permissionForm.name_en || !permissionForm.name_th) {
+      alert('กรุณากรอกชื่อสิทธิ์ / Please enter permission name')
+      return
+    }
+
+    if (editingPermission) {
+      setPermissionGroups((prev) => prev.map((g) => (g.id === editingPermission.id ? permissionForm : g)))
+    } else {
+      setPermissionGroups((prev) => [...prev, permissionForm])
+    }
+    setPermissionModalOpen(false)
+  }
 
   const [settingId, setSettingId] = useState<number | null>(null)
 
@@ -319,7 +425,8 @@ export default function AdminSettings() {
                 { id: 'seo', name: 'SEO & Meta Data', icon: Search },
                 { id: 'social', name: 'โซเชียลมีเดีย / Social Media', icon: Share2 },
                 { id: 'scripts', name: 'สคริปต์เพิ่มเติม / Custom Scripts', icon: Code },
-                { id: 'users', name: 'สิทธิ์ผู้ใช้งาน / User Permission', icon: UsersIcon }
+                { id: 'users', name: 'บัญชีผู้ใช้งาน / User Accounts', icon: UsersIcon },
+                { id: 'permissions', name: 'สิทธิการใช้งาน / Permissions', icon: ShieldCheck }
               ].map((item) => (
                 <button
                   key={item.id}
@@ -667,12 +774,11 @@ export default function AdminSettings() {
                 <div className="flex items-center mb-6">
                   <div className="w-1 h-6 wwp-gradient rounded-full mr-3" />
                   <h3 className="text-lg font-bold text-text-main dark:text-white">
-                    สิทธิ์ผู้ใช้งาน / User Permission
+                    บัญชีผู้ใช้งาน / User Accounts
                   </h3>
                 </div>
                 <p className="text-xs font-medium text-text-muted mb-6 leading-relaxed">
-                  จัดการบทบาทของผู้ใช้งานในระบบ Admin โดย Admin มีสิทธิ์เต็ม, Editor แก้ไขเนื้อหาได้, Viewer
-                  ดูได้อย่างเดียว
+                  จัดการบัญชีผู้ใช้และกำหนดบทบาทพื้นฐาน Admin, Editor, Viewer เพื่อควบคุมการเข้าถึงระบบ
                 </p>
 
                 <div className="mb-6 flex flex-col sm:flex-row sm:items-end gap-4">
@@ -783,6 +889,96 @@ export default function AdminSettings() {
                         })}
                     </tbody>
                   </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'permissions' && (
+            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="wwp-card p-8">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center">
+                    <div className="w-1 h-6 wwp-gradient rounded-full mr-3" />
+                    <h3 className="text-lg font-bold text-text-main dark:text-white">
+                      สิทธิการใช้งานระบบ / System Permissions
+                    </h3>
+                  </div>
+                  <button
+                    onClick={openCreatePermission}
+                    className="wwp-button-primary shadow-lg shadow-primary-blue/20">
+                    <Plus className="w-4 h-4 mr-2" />
+                    เพิ่มสิทธิ์ใหม่ / Add Permission
+                  </button>
+                </div>
+                <p className="text-xs font-medium text-text-muted mb-8 leading-relaxed max-w-2xl">
+                  กำหนดกลุ่มสิทธิ์ (Role) และระบุระดับการเข้าถึงในแต่ละโมดูลของระบบ เช่น การดูข้อมูล (Viewer), การแก้ไข (Editor) หรือการเข้าถึงทั้งหมด (Full Access)
+                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {permissionGroups.map((group) => (
+                    <div
+                      key={group.id}
+                      className="group relative flex flex-col p-6 rounded-2xl bg-gray-50 dark:bg-white/2 border border-border-subtle dark:border-white/5 hover:border-primary-blue/30 dark:hover:border-primary-blue/30 transition-all duration-300">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="w-12 h-12 rounded-xl bg-white dark:bg-white/5 shadow-sm flex items-center justify-center text-primary-blue dark:text-blue-400 group-hover:scale-110 transition-transform duration-300">
+                          <ShieldCheck className="w-6 h-6" />
+                        </div>
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => openEditPermission(group)}
+                            className="p-2 rounded-lg text-text-muted hover:text-primary-blue hover:bg-white dark:hover:bg-white/10 transition-colors">
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => deletePermission(group.id)}
+                            className="p-2 rounded-lg text-text-muted hover:text-red-600 hover:bg-white dark:hover:bg-white/10 transition-colors">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="mb-4">
+                        <h4 className="text-base font-bold text-text-main dark:text-white flex items-center">
+                          {group.name_th}
+                          <ChevronRight className="w-3 h-3 mx-1.5 text-text-muted" />
+                          <span className="text-xs text-text-secondary font-medium">{group.name_en}</span>
+                        </h4>
+                        <p className="text-xs text-text-muted mt-2 line-clamp-2 h-8 leading-relaxed">
+                          {group.description}
+                        </p>
+                      </div>
+
+                      <div className="mt-auto pt-4 border-t border-border-subtle dark:border-white/5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-bold uppercase tracking-widest text-text-muted">
+                            สิทธิ์การเข้าถึง / Permissions
+                          </span>
+                          <span className="text-[10px] font-bold text-primary-blue px-2 py-0.5 rounded-full bg-blue-50 dark:bg-primary-blue/10">
+                            {Object.values(group.permissions).filter((p) => p === 'all').length}/{MODULES.length} โมดูล
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-1 mt-3">
+                          {MODULES.slice(0, 5).map((m) => (
+                            <div
+                              key={m.id}
+                              title={m.name}
+                              className={`w-1.5 h-1.5 rounded-full ${
+                                group.permissions[m.id] === 'all'
+                                  ? 'bg-primary-blue shadow-[0_0_4px_rgba(43,113,237,0.5)]'
+                                  : group.permissions[m.id] === 'editor'
+                                  ? 'bg-blue-300'
+                                  : 'bg-gray-300 dark:bg-white/10'
+                              }`}
+                            />
+                          ))}
+                          {MODULES.length > 5 && (
+                            <span className="text-[8px] font-bold text-text-muted ml-0.5">+{MODULES.length - 5}</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -963,6 +1159,166 @@ export default function AdminSettings() {
                 className="wwp-button-primary shadow-lg shadow-primary-blue/20 disabled:opacity-60">
                 <Save className="w-4 h-4 mr-2" />
                 {userSubmitting ? 'กำลังบันทึก... / Saving...' : editingUser ? 'บันทึก / Save' : 'เพิ่มผู้ใช้ / Create'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add / Edit Permission Modal */}
+      {permissionModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm overflow-y-auto"
+          onClick={() => setPermissionModalOpen(false)}>
+          <div
+            className="wwp-card w-full max-w-4xl p-8 my-8 relative"
+            onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => setPermissionModalOpen(false)}
+              className="absolute top-4 right-4 p-2 rounded-lg text-text-muted hover:text-text-main hover:bg-gray-100 dark:hover:bg-white/5 transition-colors">
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="flex items-center mb-6">
+              <div className="w-1 h-6 wwp-gradient rounded-full mr-3" />
+              <h3 className="text-lg font-bold text-text-main dark:text-white">
+                {editingPermission ? 'แก้ไขกลุ่มสิทธิ์ / Edit Permission Group' : 'เพิ่มกลุ่มสิทธิ์ใหม่ / Add New Permission Group'}
+              </h3>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <div className="space-y-5 lg:col-span-1">
+                <div className="wwp-input-group">
+                  <label className="wwp-label">ชื่อสิทธิ์ (TH) / Name (TH)</label>
+                  <input
+                    type="text"
+                    value={permissionForm.name_th}
+                    onChange={(e) => setPermissionForm({ ...permissionForm, name_th: e.target.value })}
+                    className="wwp-input"
+                    placeholder="เช่น ผู้จัดการเนื้อหา"
+                  />
+                </div>
+                <div className="wwp-input-group">
+                  <label className="wwp-label">ชื่อสิทธิ์ (EN) / Name (EN)</label>
+                  <input
+                    type="text"
+                    value={permissionForm.name_en}
+                    onChange={(e) => setPermissionForm({ ...permissionForm, name_en: e.target.value })}
+                    className="wwp-input"
+                    placeholder="e.g. Content Manager"
+                  />
+                </div>
+                <div className="wwp-input-group">
+                  <label className="wwp-label">คำอธิบาย / Description</label>
+                  <textarea
+                    rows={4}
+                    value={permissionForm.description}
+                    onChange={(e) => setPermissionForm({ ...permissionForm, description: e.target.value })}
+                    className="wwp-input resize-none"
+                    placeholder="ระบุรายละเอียดของกลุ่มสิทธิ์นี้..."
+                  />
+                </div>
+              </div>
+
+              <div className="lg:col-span-2">
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-xs font-bold uppercase tracking-widest text-text-secondary dark:text-gray-400">
+                    กำหนดสิทธิ์การเข้าถึงโมดูล / Module Access
+                  </span>
+                  <div className="flex gap-2">
+                    {['viewer', 'editor', 'all'].map((level) => (
+                      <button
+                        key={level}
+                        type="button"
+                        onClick={() => {
+                          const newPermissions = { ...permissionForm.permissions }
+                          MODULES.forEach((m) => (newPermissions[m.id] = level as PermissionLevel))
+                          setPermissionForm({ ...permissionForm, permissions: newPermissions })
+                        }}
+                        className="text-[10px] font-bold text-primary-blue hover:underline uppercase tracking-tighter">
+                        Set All {level}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="border border-border-subtle dark:border-white/5 rounded-2xl overflow-hidden bg-gray-50/50 dark:bg-white/2">
+                  <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-100 dark:bg-white/5 sticky top-0 z-10">
+                        <tr className="text-left text-[10px] font-bold uppercase tracking-widest text-text-muted">
+                          <th className="px-5 py-3">โมดูล / Module</th>
+                          <th className="px-5 py-3 text-center">Viewer</th>
+                          <th className="px-5 py-3 text-center">Editor</th>
+                          <th className="px-5 py-3 text-center">Full Access</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border-subtle dark:divide-white/5">
+                        {MODULES.map((module) => (
+                          <tr key={module.id} className="hover:bg-white dark:hover:bg-white/5 transition-colors">
+                            <td className="px-5 py-4 flex items-center gap-3">
+                              <module.icon className="w-4 h-4 text-text-muted" />
+                              <span className="font-bold text-text-main dark:text-white">{module.name}</span>
+                            </td>
+                            <td className="px-5 py-4 text-center">
+                              <input
+                                type="radio"
+                                name={`perm-${module.id}`}
+                                checked={permissionForm.permissions[module.id] === 'viewer'}
+                                onChange={() => setPermissionForm({
+                                  ...permissionForm,
+                                  permissions: { ...permissionForm.permissions, [module.id]: 'viewer' }
+                                })}
+                                className="w-4 h-4 accent-primary-blue"
+                              />
+                            </td>
+                            <td className="px-5 py-4 text-center">
+                              <input
+                                type="radio"
+                                name={`perm-${module.id}`}
+                                checked={permissionForm.permissions[module.id] === 'editor'}
+                                onChange={() => setPermissionForm({
+                                  ...permissionForm,
+                                  permissions: { ...permissionForm.permissions, [module.id]: 'editor' }
+                                })}
+                                className="w-4 h-4 accent-primary-blue"
+                              />
+                            </td>
+                            <td className="px-5 py-4 text-center">
+                              <input
+                                type="radio"
+                                name={`perm-${module.id}`}
+                                checked={permissionForm.permissions[module.id] === 'all'}
+                                onChange={() => setPermissionForm({
+                                  ...permissionForm,
+                                  permissions: { ...permissionForm.permissions, [module.id]: 'all' }
+                                })}
+                                className="w-4 h-4 accent-primary-blue"
+                              />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 mt-8">
+              <button
+                type="button"
+                onClick={() => setPermissionModalOpen(false)}
+                className="px-4 py-2 rounded-xl text-sm font-bold text-text-secondary hover:bg-gray-100 dark:hover:bg-white/5 transition-colors">
+                ยกเลิก / Cancel
+              </button>
+              <button
+                type="button"
+                onClick={submitPermissionForm}
+                className="wwp-button-primary shadow-lg shadow-primary-blue/20">
+                <Save className="w-4 h-4 mr-2" />
+                {editingPermission ? 'บันทึกสิทธิ์ / Save' : 'สร้างสิทธิ์ / Create'}
               </button>
             </div>
           </div>
