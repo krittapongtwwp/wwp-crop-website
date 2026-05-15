@@ -17,49 +17,113 @@ import {
   Bell,
   Bot,
   History,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Pencil,
+  KeyRound,
+  Eye,
+  EyeOff,
+  Save
 } from 'lucide-react'
 import { ChangelogNotification } from '../components/ChangelogNotification'
+import { usersApi, getUserErrorMessage } from '../lib/api/users'
 
 export default function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [user, setUser] = useState<any>(null)
+  const [profileModalOpen, setProfileModalOpen] = useState(false)
+  const [profileSubmitting, setProfileSubmitting] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [profileForm, setProfileForm] = useState({
+    name: '',
+    email: '',
+    password: '',
+    confirmPassword: ''
+  })
+
   const location = useLocation()
   const navigate = useNavigate()
 
-  useEffect(() => {
-    // Auto-login for dev
-    // if (import.meta.env.DEV) {
-    //   localStorage.setItem('weadmin_token', 'dev-token')
-    //   localStorage.setItem('weadmin_user', JSON.stringify({ id: 1, name: 'Admin User', email: 'admin@wewebplus.com' }))
-    // }
-
-    // const token = localStorage.getItem('weadmin_token')
-    // if (!token) {
-    //   navigate('/weadmin/login')
-    //   return
-    // }
-
+  const fetchUser = () => {
     fetchApi('/auth/me')
-      .then((data) => setUser(data))
+      .then((data) => {
+        setUser(data)
+        setProfileForm({
+          name: data.name || '',
+          email: data.email || '',
+          password: '',
+          confirmPassword: ''
+        })
+      })
       .catch((err: any) => {
         console.log({ error: '/auth/me', detail: err })
-        // if (!import.meta.env.DEV) {
-        //   localStorage.removeItem('weadmin_token')
-        //   navigate('/weadmin/login')
-        // } else {
-        //   setUser({ id: 1, name: 'Admin User', email: 'admin@wewebplus.com' })
-        // }
       })
+  }
+
+  useEffect(() => {
+    fetchUser()
   }, [navigate])
 
   const handleLogout = () => {
-    // localStorage.removeItem('weadmin_token')
-    // localStorage.removeItem('weadmin_user')
     navigate('/weadmin/login')
   }
 
-  if (!user) return null // or a loading spinner
+  const openProfileModal = () => {
+    setProfileForm({
+      name: user.name || '',
+      email: user.email || '',
+      password: '',
+      confirmPassword: ''
+    })
+    setShowPassword(false)
+    setShowConfirmPassword(false)
+    setProfileModalOpen(true)
+  }
+
+  const submitProfileForm = async () => {
+    const name = profileForm.name.trim()
+    const email = profileForm.email.trim()
+    if (!email) {
+      alert('กรุณากรอกอีเมล / Email is required')
+      return
+    }
+
+    const password = profileForm.password
+    const confirmPassword = profileForm.confirmPassword
+    const passwordProvided = password.length > 0 || confirmPassword.length > 0
+
+    if (passwordProvided) {
+      if (password.length < 4) {
+        alert('รหัสผ่านต้องมีอย่างน้อย 4 ตัวอักษร / Password must be at least 4 characters')
+        return
+      }
+      if (password !== confirmPassword) {
+        alert('รหัสผ่านยืนยันไม่ตรงกัน / Passwords do not match')
+        return
+      }
+    }
+
+    try {
+      setProfileSubmitting(true)
+      await usersApi.update(user.id, {
+        email,
+        name: name || null,
+        role: user.role, // Keep existing role
+        ...(passwordProvided ? { password } : {})
+      })
+      
+      alert('แก้ไขข้อมูลสำเร็จ / Profile updated successfully')
+      fetchUser()
+      setProfileModalOpen(false)
+    } catch (err) {
+      console.error('Failed to update profile', err)
+      alert(getUserErrorMessage(err))
+    } finally {
+      setProfileSubmitting(false)
+    }
+  }
+
+  if (!user) return null
 
   const navigation = [
     { name: 'Dashboard', href: '/weadmin', icon: LayoutDashboard },
@@ -139,19 +203,28 @@ export default function AdminLayout() {
           </div>
 
           <div className="p-6 border-t border-border-subtle dark:border-white/5 bg-gray-50/50 dark:bg-white/2">
-            <div className="flex items-center p-2 rounded-2xl bg-white dark:bg-white/5 border border-border-subtle dark:border-white/5 shadow-sm">
-              <img
-                className="w-10 h-10 rounded-xl bg-gray-200 object-cover shadow-inner"
-                src={`https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=2b71ed&color=fff&bold=true&rounded=true`}
-                alt={user.name}
-              />
+            <button
+              onClick={openProfileModal}
+              className="w-full flex items-center p-2 rounded-2xl bg-white dark:bg-white/5 border border-border-subtle dark:border-white/5 shadow-sm hover:border-primary-blue/30 hover:shadow-md transition-all group/user text-left">
+              <div className="relative">
+                <img
+                  className="w-10 h-10 rounded-xl bg-gray-200 object-cover shadow-inner group-hover/user:scale-105 transition-transform"
+                  src={`https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=2b71ed&color=fff&bold=true&rounded=true`}
+                  alt={user.name}
+                />
+                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-white dark:bg-[#0F172A] rounded-full flex items-center justify-center shadow-sm">
+                  <Pencil className="w-2 h-2 text-primary-blue" />
+                </div>
+              </div>
               <div className="ml-3 overflow-hidden">
-                <p className="text-sm font-bold text-text-main dark:text-white truncate">{user.name}</p>
+                <p className="text-sm font-bold text-text-main dark:text-white truncate group-hover/user:text-primary-blue transition-colors">
+                  {user.name}
+                </p>
                 <p className="text-[11px] text-text-muted truncate uppercase tracking-wider font-medium">
                   {user.email}
                 </p>
               </div>
-            </div>
+            </button>
             <button
               onClick={handleLogout}
               className="w-full mt-4 flex items-center justify-center px-4 py-2.5 text-sm font-semibold text-red-500 dark:text-red-400 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/10 transition-all border border-transparent hover:border-red-100 dark:hover:border-red-900/20">
@@ -216,6 +289,135 @@ export default function AdminLayout() {
         </main>
       </div>
       <ChangelogNotification />
+
+      {/* Profile Edit Modal */}
+      {profileModalOpen && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          onClick={() => !profileSubmitting && setProfileModalOpen(false)}>
+          <div
+            className="wwp-card w-full max-w-lg p-8 relative animate-in fade-in zoom-in duration-300"
+            onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => setProfileModalOpen(false)}
+              disabled={profileSubmitting}
+              className="absolute top-4 right-4 p-2 rounded-lg text-text-muted hover:text-text-main hover:bg-gray-100 dark:hover:bg-white/5 transition-colors disabled:opacity-50">
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="flex items-center mb-6">
+              <div className="w-1 h-6 wwp-gradient rounded-full mr-3" />
+              <h3 className="text-lg font-bold text-text-main dark:text-white">
+                แก้ไขข้อมูลส่วนตัว / Edit Profile
+              </h3>
+            </div>
+
+            <div className="space-y-5">
+              <div className="wwp-input-group">
+                <label className="wwp-label">ชื่อ / Name</label>
+                <input
+                  type="text"
+                  value={profileForm.name}
+                  onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
+                  className="wwp-input"
+                  placeholder="John Doe"
+                  disabled={profileSubmitting}
+                />
+              </div>
+
+              <div className="wwp-input-group">
+                <label className="wwp-label">อีเมล / Email</label>
+                <input
+                  type="email"
+                  value={profileForm.email}
+                  onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
+                  className="wwp-input"
+                  placeholder="user@wewebplus.com"
+                  disabled={profileSubmitting}
+                />
+              </div>
+
+              {/* Password Section */}
+              <div className="pt-5 border-t border-border-subtle dark:border-white/5">
+                <div className="flex items-center gap-2 mb-4">
+                  <KeyRound className="w-4 h-4 text-text-muted" />
+                  <span className="text-xs font-bold uppercase tracking-widest text-text-secondary dark:text-gray-400">
+                    เปลี่ยนรหัสผ่าน / Change Password
+                  </span>
+                </div>
+                <p className="text-[11px] text-text-muted mb-4 leading-relaxed">
+                  เว้นว่างไว้ถ้าไม่ต้องการเปลี่ยน / Leave blank to keep current password
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <div className="wwp-input-group">
+                    <label className="wwp-label">รหัสผ่านใหม่ / New Password</label>
+                    <div className="relative">
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        value={profileForm.password}
+                        onChange={(e) => setProfileForm({ ...profileForm, password: e.target.value })}
+                        className="wwp-input pr-10"
+                        placeholder="••••••••"
+                        autoComplete="new-password"
+                        disabled={profileSubmitting}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((v) => !v)}
+                        tabIndex={-1}
+                        className="absolute inset-y-0 right-0 flex items-center px-3 text-text-muted hover:text-text-main transition-colors">
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="wwp-input-group">
+                    <label className="wwp-label">ยืนยันรหัสผ่าน / Confirm</label>
+                    <div className="relative">
+                      <input
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        value={profileForm.confirmPassword}
+                        onChange={(e) => setProfileForm({ ...profileForm, confirmPassword: e.target.value })}
+                        className="wwp-input pr-10"
+                        placeholder="••••••••"
+                        autoComplete="new-password"
+                        disabled={profileSubmitting}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword((v) => !v)}
+                        tabIndex={-1}
+                        className="absolute inset-y-0 right-0 flex items-center px-3 text-text-muted hover:text-text-main transition-colors">
+                        {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 mt-8">
+              <button
+                type="button"
+                onClick={() => setProfileModalOpen(false)}
+                disabled={profileSubmitting}
+                className="px-4 py-2 rounded-xl text-sm font-bold text-text-secondary hover:bg-gray-100 dark:hover:bg-white/5 transition-colors disabled:opacity-50">
+                ยกเลิก / Cancel
+              </button>
+              <button
+                type="button"
+                onClick={submitProfileForm}
+                disabled={profileSubmitting}
+                className="wwp-button-primary shadow-lg shadow-primary-blue/20 disabled:opacity-60">
+                <Save className="w-4 h-4 mr-2" />
+                {profileSubmitting ? 'กำลังบันทึก... / Saving...' : 'บันทึกข้อมูล / Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
