@@ -768,14 +768,103 @@ export default function AdminSettings() {
             </div>
           )}
 
+          {activeTab === 'permissions' && (
+            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="wwp-card p-8">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center">
+                    <div className="w-1 h-6 wwp-gradient rounded-full mr-3" />
+                    <h3 className="text-lg font-bold text-text-main dark:text-white">
+                      สิทธิการใช้งานระบบ / System Permissions
+                    </h3>
+                  </div>
+                  <button
+                    onClick={openCreatePermission}
+                    className="wwp-button-primary shadow-lg shadow-primary-blue/20">
+                    <Plus className="w-4 h-4 mr-2" />
+                    เพิ่มสิทธิ์ใหม่ / Add Permission
+                  </button>
+                </div>
+                <p className="text-xs font-medium text-text-muted mb-8 leading-relaxed max-w-2xl">
+                  กำหนดกลุ่มสิทธิ์ (Role) และระบุระดับการเข้าถึงในแต่ละโมดูลของระบบ เช่น การดูข้อมูล (Viewer), การแก้ไข
+                  (Editor) หรือการเข้าถึงทั้งหมด (Full Access)
+                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {permissionGroups.map((group) => (
+                    <div
+                      key={group.id}
+                      className="group relative flex flex-col p-6 rounded-2xl bg-gray-50 dark:bg-white/2 border border-border-subtle dark:border-white/5 hover:border-primary-blue/30 dark:hover:border-primary-blue/30 transition-all duration-300">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="w-12 h-12 rounded-xl bg-white dark:bg-white/5 shadow-sm flex items-center justify-center text-primary-blue dark:text-blue-400 group-hover:scale-110 transition-transform duration-300">
+                          <ShieldCheck className="w-6 h-6" />
+                        </div>
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => openEditPermission(group)}
+                            className="p-2 rounded-lg text-text-muted hover:text-primary-blue hover:bg-white dark:hover:bg-white/10 transition-colors">
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => deletePermission(group.id)}
+                            className="p-2 rounded-lg text-text-muted hover:text-red-600 hover:bg-white dark:hover:bg-white/10 transition-colors">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="mb-4">
+                        <h4 className="text-base font-bold text-text-main dark:text-white flex items-center">
+                          {group.name_th}
+                          <ChevronRight className="w-3 h-3 mx-1.5 text-text-muted" />
+                          <span className="text-xs text-text-secondary font-medium">{group.name_en}</span>
+                        </h4>
+                        <p className="text-xs text-text-muted mt-2 line-clamp-2 h-8 leading-relaxed">
+                          {group.description}
+                        </p>
+                      </div>
+
+                      <div className="mt-auto pt-4 border-t border-border-subtle dark:border-white/5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-bold uppercase tracking-widest text-text-muted">
+                            สิทธิ์การเข้าถึง / Permissions
+                          </span>
+                          <span className="text-[10px] font-bold text-primary-blue px-2 py-0.5 rounded-full bg-blue-50 dark:bg-primary-blue/10">
+                            {Object.values(group.permissions).filter((p) => p === 'all').length}/{MODULES.length} โมดูล
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-1 mt-3">
+                          {MODULES.slice(0, 5).map((m) => (
+                            <div
+                              key={m.id}
+                              title={m.name}
+                              className={`w-1.5 h-1.5 rounded-full ${
+                                group.permissions[m.id] === 'all'
+                                  ? 'bg-primary-blue shadow-[0_0_4px_rgba(43,113,237,0.5)]'
+                                  : group.permissions[m.id] === 'editor'
+                                    ? 'bg-blue-300'
+                                    : 'bg-gray-300 dark:bg-white/10'
+                              }`}
+                            />
+                          ))}
+                          {MODULES.length > 5 && (
+                            <span className="text-[8px] font-bold text-text-muted ml-0.5">+{MODULES.length - 5}</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           {activeTab === 'users' && (
             <div className="space-y-8">
               <div className="wwp-card p-8">
                 <div className="flex items-center mb-6">
                   <div className="w-1 h-6 wwp-gradient rounded-full mr-3" />
-                  <h3 className="text-lg font-bold text-text-main dark:text-white">
-                    บัญชีผู้ใช้งาน / User Accounts
-                  </h3>
+                  <h3 className="text-lg font-bold text-text-main dark:text-white">บัญชีผู้ใช้งาน / User Accounts</h3>
                 </div>
                 <p className="text-xs font-medium text-text-muted mb-6 leading-relaxed">
                   จัดการบัญชีผู้ใช้และกำหนดบทบาทพื้นฐาน Admin, Editor, Viewer เพื่อควบคุมการเข้าถึงระบบ
@@ -889,96 +978,6 @@ export default function AdminSettings() {
                         })}
                     </tbody>
                   </table>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'permissions' && (
-            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <div className="wwp-card p-8">
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center">
-                    <div className="w-1 h-6 wwp-gradient rounded-full mr-3" />
-                    <h3 className="text-lg font-bold text-text-main dark:text-white">
-                      สิทธิการใช้งานระบบ / System Permissions
-                    </h3>
-                  </div>
-                  <button
-                    onClick={openCreatePermission}
-                    className="wwp-button-primary shadow-lg shadow-primary-blue/20">
-                    <Plus className="w-4 h-4 mr-2" />
-                    เพิ่มสิทธิ์ใหม่ / Add Permission
-                  </button>
-                </div>
-                <p className="text-xs font-medium text-text-muted mb-8 leading-relaxed max-w-2xl">
-                  กำหนดกลุ่มสิทธิ์ (Role) และระบุระดับการเข้าถึงในแต่ละโมดูลของระบบ เช่น การดูข้อมูล (Viewer), การแก้ไข (Editor) หรือการเข้าถึงทั้งหมด (Full Access)
-                </p>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {permissionGroups.map((group) => (
-                    <div
-                      key={group.id}
-                      className="group relative flex flex-col p-6 rounded-2xl bg-gray-50 dark:bg-white/2 border border-border-subtle dark:border-white/5 hover:border-primary-blue/30 dark:hover:border-primary-blue/30 transition-all duration-300">
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="w-12 h-12 rounded-xl bg-white dark:bg-white/5 shadow-sm flex items-center justify-center text-primary-blue dark:text-blue-400 group-hover:scale-110 transition-transform duration-300">
-                          <ShieldCheck className="w-6 h-6" />
-                        </div>
-                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={() => openEditPermission(group)}
-                            className="p-2 rounded-lg text-text-muted hover:text-primary-blue hover:bg-white dark:hover:bg-white/10 transition-colors">
-                            <Pencil className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => deletePermission(group.id)}
-                            className="p-2 rounded-lg text-text-muted hover:text-red-600 hover:bg-white dark:hover:bg-white/10 transition-colors">
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="mb-4">
-                        <h4 className="text-base font-bold text-text-main dark:text-white flex items-center">
-                          {group.name_th}
-                          <ChevronRight className="w-3 h-3 mx-1.5 text-text-muted" />
-                          <span className="text-xs text-text-secondary font-medium">{group.name_en}</span>
-                        </h4>
-                        <p className="text-xs text-text-muted mt-2 line-clamp-2 h-8 leading-relaxed">
-                          {group.description}
-                        </p>
-                      </div>
-
-                      <div className="mt-auto pt-4 border-t border-border-subtle dark:border-white/5">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-bold uppercase tracking-widest text-text-muted">
-                            สิทธิ์การเข้าถึง / Permissions
-                          </span>
-                          <span className="text-[10px] font-bold text-primary-blue px-2 py-0.5 rounded-full bg-blue-50 dark:bg-primary-blue/10">
-                            {Object.values(group.permissions).filter((p) => p === 'all').length}/{MODULES.length} โมดูล
-                          </span>
-                        </div>
-                        <div className="flex flex-wrap gap-1 mt-3">
-                          {MODULES.slice(0, 5).map((m) => (
-                            <div
-                              key={m.id}
-                              title={m.name}
-                              className={`w-1.5 h-1.5 rounded-full ${
-                                group.permissions[m.id] === 'all'
-                                  ? 'bg-primary-blue shadow-[0_0_4px_rgba(43,113,237,0.5)]'
-                                  : group.permissions[m.id] === 'editor'
-                                  ? 'bg-blue-300'
-                                  : 'bg-gray-300 dark:bg-white/10'
-                              }`}
-                            />
-                          ))}
-                          {MODULES.length > 5 && (
-                            <span className="text-[8px] font-bold text-text-muted ml-0.5">+{MODULES.length - 5}</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
                 </div>
               </div>
             </div>
@@ -1170,9 +1169,7 @@ export default function AdminSettings() {
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm overflow-y-auto"
           onClick={() => setPermissionModalOpen(false)}>
-          <div
-            className="wwp-card w-full max-w-4xl p-8 my-8 relative"
-            onClick={(e) => e.stopPropagation()}>
+          <div className="wwp-card w-full max-w-4xl p-8 my-8 relative" onClick={(e) => e.stopPropagation()}>
             <button
               type="button"
               onClick={() => setPermissionModalOpen(false)}
@@ -1183,7 +1180,9 @@ export default function AdminSettings() {
             <div className="flex items-center mb-6">
               <div className="w-1 h-6 wwp-gradient rounded-full mr-3" />
               <h3 className="text-lg font-bold text-text-main dark:text-white">
-                {editingPermission ? 'แก้ไขกลุ่มสิทธิ์ / Edit Permission Group' : 'เพิ่มกลุ่มสิทธิ์ใหม่ / Add New Permission Group'}
+                {editingPermission
+                  ? 'แก้ไขกลุ่มสิทธิ์ / Edit Permission Group'
+                  : 'เพิ่มกลุ่มสิทธิ์ใหม่ / Add New Permission Group'}
               </h3>
             </div>
 
@@ -1266,10 +1265,12 @@ export default function AdminSettings() {
                                 type="radio"
                                 name={`perm-${module.id}`}
                                 checked={permissionForm.permissions[module.id] === 'viewer'}
-                                onChange={() => setPermissionForm({
-                                  ...permissionForm,
-                                  permissions: { ...permissionForm.permissions, [module.id]: 'viewer' }
-                                })}
+                                onChange={() =>
+                                  setPermissionForm({
+                                    ...permissionForm,
+                                    permissions: { ...permissionForm.permissions, [module.id]: 'viewer' }
+                                  })
+                                }
                                 className="w-4 h-4 accent-primary-blue"
                               />
                             </td>
@@ -1278,10 +1279,12 @@ export default function AdminSettings() {
                                 type="radio"
                                 name={`perm-${module.id}`}
                                 checked={permissionForm.permissions[module.id] === 'editor'}
-                                onChange={() => setPermissionForm({
-                                  ...permissionForm,
-                                  permissions: { ...permissionForm.permissions, [module.id]: 'editor' }
-                                })}
+                                onChange={() =>
+                                  setPermissionForm({
+                                    ...permissionForm,
+                                    permissions: { ...permissionForm.permissions, [module.id]: 'editor' }
+                                  })
+                                }
                                 className="w-4 h-4 accent-primary-blue"
                               />
                             </td>
@@ -1290,10 +1293,12 @@ export default function AdminSettings() {
                                 type="radio"
                                 name={`perm-${module.id}`}
                                 checked={permissionForm.permissions[module.id] === 'all'}
-                                onChange={() => setPermissionForm({
-                                  ...permissionForm,
-                                  permissions: { ...permissionForm.permissions, [module.id]: 'all' }
-                                })}
+                                onChange={() =>
+                                  setPermissionForm({
+                                    ...permissionForm,
+                                    permissions: { ...permissionForm.permissions, [module.id]: 'all' }
+                                  })
+                                }
                                 className="w-4 h-4 accent-primary-blue"
                               />
                             </td>
